@@ -62,12 +62,12 @@
                                     <items>
                                         <menuItem title="New" keyEquivalent="n" id="Was-JA-tGl">
                                             <connections>
-                                                <action selector="newDocument:" target="Ady-hI-5gd" id="4Si-XN-c54"/>
+                                                <action selector="newDocument:" target="XfG-lQ-9wD" id="4Si-XN-c54"/>
                                             </connections>
                                         </menuItem>
                                         <menuItem title="Open…" keyEquivalent="o" id="IAo-SY-fd9">
                                             <connections>
-                                                <action selector="openDocument:" target="Ady-hI-5gd" id="bVn-NM-KNZ"/>
+                                                <action selector="openDocument:" target="XfG-lQ-9wD" id="bVn-NM-KNZ"/>
                                             </connections>
                                         </menuItem>
                                         <menuItem title="Open Recent" id="tXI-mr-wws">
@@ -91,12 +91,12 @@
                                         </menuItem>
                                         <menuItem title="Save…" keyEquivalent="s" id="pxx-59-PXV">
                                             <connections>
-                                                <action selector="saveDocument:" target="Ady-hI-5gd" id="teZ-XB-qJY"/>
+                                                <action selector="saveDocument:" target="XfG-lQ-9wD" id="teZ-XB-qJY"/>
                                             </connections>
                                         </menuItem>
                                         <menuItem title="Save As…" keyEquivalent="S" id="Bw7-FT-i3A">
                                             <connections>
-                                                <action selector="saveDocumentAs:" target="Ady-hI-5gd" id="mDf-zr-I0C"/>
+                                                <action selector="saveDocumentAs:" target="XfG-lQ-9wD" id="mDf-zr-I0C"/>
                                             </connections>
                                         </menuItem>
                                         <menuItem title="Revert to Saved" keyEquivalent="r" id="KaW-ft-85H">
@@ -693,28 +693,44 @@
                         <value key="minSize" type="size" width="300" height="100"/>
                         <toolbar key="toolbar" implicitIdentifier="89706A1F-B72A-4D45-A19B-48D631BA931E" autosavesConfiguration="NO" allowsUserCustomization="NO" showsBaselineSeparator="NO" displayMode="iconAndLabel" sizeMode="regular" id="9Cr-vI-QW0">
                             <allowedToolbarItems>
+                                <toolbarItem implicitItemIdentifier="RUN_SCRIPT" label="Run" paletteLabel="Run Script" tag="-1" bordered="YES" sizingBehavior="auto" autovalidates="NO" id="run-script-item">
+                                    <imageReference key="image" image="play.fill" catalog="system" symbolScale="large"/>
+                                    <connections>
+                                        <action selector="runScript:" target="XfG-lQ-9wD" id="run-script-action"/>
+                                    </connections>
+                                </toolbarItem>
+                                <toolbarItem implicitItemIdentifier="STOP_SCRIPT" label="Stop" paletteLabel="Stop Script" tag="-1" bordered="YES" sizingBehavior="auto" autovalidates="NO" id="stop-script-item">
+                                    <imageReference key="image" image="stop.fill" catalog="system" symbolScale="large"/>
+                                    <connections>
+                                        <action selector="stopScript:" target="XfG-lQ-9wD" id="stop-script-action"/>
+                                    </connections>
+                                </toolbarItem>
+                                <toolbarItem implicitItemIdentifier="NSToolbarSpaceItem" id="CJB-Vc-Vlk"/>
                                 <toolbarItem implicitItemIdentifier="DE34C9A7-73A8-4FB0-804F-36AE4CFD0527" label="Wrap" paletteLabel="Text Wrapping" tag="-1" bordered="YES" sizingBehavior="auto" autovalidates="NO" id="JV6-de-LTW">
                                     <imageReference key="image" image="text.justify.leading" catalog="system" symbolScale="large"/>
                                     <connections>
-                                        <action selector="toggleTextWrapMode:" target="Oky-zY-oP4" id="0jK-vv-upN"/>
+                                        <action selector="toggleTextWrapMode:" target="XfG-lQ-9wD" id="0jK-vv-upN"/>
                                     </connections>
                                 </toolbarItem>
                                 <toolbarItem implicitItemIdentifier="69692D5E-37C8-42F9-B8FE-8F5988211D84" label="Invisibles" paletteLabel="Invisible Characters" tag="-1" image="dot.viewfinder" catalog="system" bordered="YES" sizingBehavior="auto" autovalidates="NO" id="1Pv-jL-YKX">
                                     <connections>
-                                        <action selector="toggleInvisibles:" target="Oky-zY-oP4" id="EgE-A0-grP"/>
+                                        <action selector="toggleInvisibles:" target="XfG-lQ-9wD" id="EgE-A0-grP"/>
                                     </connections>
                                 </toolbarItem>
                                 <toolbarItem implicitItemIdentifier="324DCBA6-A541-4243-A2A4-FD4D326D1362" label="Gutter" paletteLabel="Line numbers" tag="-1" image="list.number" catalog="system" bordered="YES" sizingBehavior="auto" autovalidates="NO" id="hFT-ea-5XE">
                                     <connections>
-                                        <action selector="toggleRuler:" target="Oky-zY-oP4" id="97l-Cs-WDw"/>
+                                        <action selector="toggleRuler:" target="XfG-lQ-9wD" id="97l-Cs-WDw"/>
                                     </connections>
                                 </toolbarItem>
-                                <toolbarItem implicitItemIdentifier="NSToolbarSpaceItem" id="CJB-Vc-Vlk"/>
                                 <toolbarItem implicitItemIdentifier="NSToolbarFlexibleSpaceItem" id="yNL-fS-mZG"/>
                             </allowedToolbarItems>
                             <defaultToolbarItems>
+                                <toolbarItem reference="run-script-item"/>
+                                <toolbarItem reference="stop-script-item"/>
+                                <toolbarItem reference="CJB-Vc-Vlk"/>
                                 <toolbarItem reference="yNL-fS-mZG"/>
                                 <toolbarItem reference="JV6-de-LTW"/>
+                                <toolbarItem reference="hFT-ea-5XE"/>
                             </defaultToolbarItems>
                         </toolbar>
                         <connections>
@@ -746,6 +762,8 @@
     <resources>
         <image name="dot.viewfinder" catalog="system" width="16" height="15"/>
         <image name="list.number" catalog="system" width="16" height="13"/>
+        <image name="play.fill" catalog="system" width="16" height="16"/>
+        <image name="stop.fill" catalog="system" width="16" height="16"/>
         <image name="text.justify.leading" catalog="system" width="21" height="17"/>
     </resources>
 </document>

@@ -4,17 +4,42 @@
 import AppKit
 import STTextView
 import SwiftUI
-
-// import DummyPlugin
+import UniformTypeIdentifiers
 
 final class ViewController: NSViewController {
     private var textView: STTextView!
-
+    private var statusTextView: NSTextView!
+    private var splitView: NSSplitView!
     private var completions: [Completion.Item] = []
+    private var currentFileURL: URL?
 
     override func viewDidLoad() {
         super.viewDidLoad()
-
+        
+        setupSplitView()
+        setupTextEditor()
+        setupStatusWindow()
+        updateWindowTitle()
+        
+        updateCompletionsInBackground()
+    }
+    
+    private func setupSplitView() {
+        splitView = NSSplitView()
+        splitView.isVertical = false
+        splitView.dividerStyle = .thin
+        splitView.translatesAutoresizingMaskIntoConstraints = false
+        
+        view.addSubview(splitView)
+        NSLayoutConstraint.activate([
+            splitView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            splitView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            splitView.topAnchor.constraint(equalTo: view.topAnchor),
+            splitView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+    }
+    
+    private func setupTextEditor() {
         let scrollView = STTextView.scrollableTextView()
         textView = scrollView.documentView as? STTextView
         scrollView.translatesAutoresizingMaskIntoConstraints = false
@@ -25,10 +50,9 @@ final class ViewController: NSViewController {
         paragraph.lineHeightMultiple = 1.2
         textView.defaultParagraphStyle = paragraph
 
-
         textView.font = NSFont.monospacedSystemFont(ofSize: 0, weight: .regular)
         textView.text = ""
-        textView.isHorizontallyResizable = false // wrap
+        textView.isHorizontallyResizable = false
         textView.highlightSelectedLine = true
         textView.isIncrementalSearchingEnabled = true
         textView.showsInvisibleCharacters = false
@@ -37,22 +61,32 @@ final class ViewController: NSViewController {
         textView.gutterView?.areMarkersEnabled = true
         textView.gutterView?.drawSeparator = true
         
-        // Plugins
-        // textView.addPlugin(DummyPlugin())
-
-        view.addSubview(scrollView)
-        NSLayoutConstraint.activate([
-            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollView.topAnchor.constraint(equalTo: view.topAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
-        ])
-
-        // Add attributes
-
-
-
-        updateCompletionsInBackground()
+        splitView.addArrangedSubview(scrollView)
+    }
+    
+    private func setupStatusWindow() {
+        let statusScrollView = NSScrollView()
+        statusScrollView.translatesAutoresizingMaskIntoConstraints = false
+        statusScrollView.hasVerticalScroller = true
+        statusScrollView.hasHorizontalScroller = false
+        statusScrollView.autohidesScrollers = true
+        statusScrollView.borderType = .lineBorder
+        
+        statusTextView = NSTextView()
+        statusTextView.isEditable = false
+        statusTextView.isSelectable = true
+        statusTextView.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
+        statusTextView.backgroundColor = NSColor.controlBackgroundColor
+        statusTextView.textColor = NSColor.labelColor
+        statusTextView.string = "Ready\n"
+        
+        statusScrollView.documentView = statusTextView
+        splitView.addArrangedSubview(statusScrollView)
+        
+        // Set initial split position after layout
+        DispatchQueue.main.async {
+            self.splitView.setPosition(self.splitView.bounds.height - 120, ofDividerAt: 0)
+        }
     }
 
     @IBAction func toggleTextWrapMode(_ sender: Any?) {
@@ -62,6 +96,120 @@ final class ViewController: NSViewController {
     @IBAction func toggleInvisibles(_ sender: Any?) {
         //textView.showsInvisibleCharacters.toggle()
     }
+    
+    @IBAction func toggleRuler(_ sender: Any?) {
+        textView.showsLineNumbers.toggle()
+    }
+    
+    @IBAction func runScript(_ sender: Any?) {
+        appendToStatus("Running script...\n")
+        // TODO: Integrate with script interpreter
+        appendToStatus("Script execution not yet implemented.\n")
+    }
+    
+    @IBAction func stopScript(_ sender: Any?) {
+        appendToStatus("Stopping script...\n")
+        // TODO: Stop script execution
+        appendToStatus("Script stopped.\n")
+    }
+    
+    private func appendToStatus(_ message: String) {
+        DispatchQueue.main.async {
+            self.statusTextView.textStorage?.append(NSAttributedString(string: message))
+            self.statusTextView.scrollToEndOfDocument(nil)
+        }
+    }
+    
+    // MARK: - File Operations
+    
+    @IBAction func newDocument(_ sender: Any?) {
+        textView.text = ""
+        currentFileURL = nil
+        updateWindowTitle()
+        appendToStatus("New document created\n")
+    }
+    
+    @IBAction func openDocument(_ sender: Any?) {
+        let openPanel = NSOpenPanel()
+        var allowedTypes: [UTType] = [.plainText]
+        if let lightscriptType = UTType(filenameExtension: "lightscript") {
+            allowedTypes.append(lightscriptType)
+        }
+        if let lsType = UTType(filenameExtension: "ls") {
+            allowedTypes.append(lsType)
+        }
+        openPanel.allowedContentTypes = allowedTypes
+        openPanel.allowsMultipleSelection = false
+        openPanel.canChooseDirectories = false
+        
+        if openPanel.runModal() == .OK,
+           let url = openPanel.url {
+            loadFile(from: url)
+        }
+    }
+    
+    @IBAction func saveDocument(_ sender: Any?) {
+        if let url = currentFileURL {
+            saveFile(to: url)
+        } else {
+            saveDocumentAs(sender)
+        }
+    }
+    
+    @IBAction func saveDocumentAs(_ sender: Any?) {
+        let savePanel = NSSavePanel()
+        var allowedTypes: [UTType] = [.plainText]
+        if let lightscriptType = UTType(filenameExtension: "lightscript") {
+            allowedTypes.append(lightscriptType)
+        }
+        if let lsType = UTType(filenameExtension: "ls") {
+            allowedTypes.append(lsType)
+        }
+        savePanel.allowedContentTypes = allowedTypes
+        savePanel.canCreateDirectories = true
+        
+        if savePanel.runModal() == .OK,
+           let url = savePanel.url {
+            saveFile(to: url)
+            currentFileURL = url
+            updateWindowTitle()
+        }
+    }
+    
+    private func loadFile(from url: URL) {
+        do {
+            let content = try String(contentsOf: url, encoding: .utf8)
+            textView.text = content
+            currentFileURL = url
+            updateWindowTitle()
+            appendToStatus("Loaded file: \(url.lastPathComponent)\n")
+        } catch {
+            appendToStatus("Error loading file: \(error.localizedDescription)\n")
+            NSAlert(error: error).runModal()
+        }
+    }
+    
+    private func saveFile(to url: URL) {
+        do {
+            guard let text = textView.text else {
+                appendToStatus("Error: No text to save\n")
+                return
+            }
+            try text.write(to: url, atomically: true, encoding: .utf8)
+            appendToStatus("Saved file: \(url.lastPathComponent)\n")
+        } catch {
+            appendToStatus("Error saving file: \(error.localizedDescription)\n")
+            NSAlert(error: error).runModal()
+        }
+    }
+    
+    private func updateWindowTitle() {
+        if let url = currentFileURL {
+            view.window?.title = "LightscriptIDE - \(url.lastPathComponent)"
+        } else {
+            view.window?.title = "LightscriptIDE - Untitled"
+        }
+    }
 
     override func viewDidDisappear() {
         super.viewDidDisappear()
@@ -70,7 +218,6 @@ final class ViewController: NSViewController {
 
     private var completionTask: Task<(), Never>?
 
-    /// Update completion list with words
     private func updateCompletionsInBackground() {
         completionTask?.cancel()
         completionTask = Task(priority: .background) {
