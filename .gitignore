@@ -1,0 +1,20 @@
+# Xcode
+.DS_Store
+DerivedData/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+
+# Build products
+build/
+*.o
+*.lo
+*.la
+*.dylib
+*.a
+*.so
+*.app
+*.ipa
+*.dSYM/
+
+# CocoaPods
+Pods/
