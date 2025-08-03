@@ -3,6 +3,7 @@
 DerivedData/
 *.xcodeproj/xcuserdata/
 *.xcworkspace/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
 
 # Build products
 build/
