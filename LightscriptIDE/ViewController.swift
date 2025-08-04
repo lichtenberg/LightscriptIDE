@@ -84,10 +84,18 @@ final class ViewController: NSViewController {
         statusTextView = NSTextView()
         statusTextView.isEditable = false
         statusTextView.isSelectable = true
+        statusTextView.isRichText = false
         statusTextView.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
         statusTextView.backgroundColor = NSColor.controlBackgroundColor
-        statusTextView.textColor = NSColor.labelColor
+        statusTextView.textColor = NSColor.textColor
         statusTextView.string = "Ready\n"
+        
+        // Configure text container
+        statusTextView.textContainer?.widthTracksTextView = true
+        statusTextView.textContainer?.containerSize = NSSize(width: statusScrollView.contentSize.width, height: CGFloat.greatestFiniteMagnitude)
+        statusTextView.isHorizontallyResizable = false
+        statusTextView.isVerticallyResizable = true
+        statusTextView.autoresizingMask = [.width]
         
         statusScrollView.documentView = statusTextView
         splitView.addArrangedSubview(statusScrollView)
@@ -124,7 +132,12 @@ final class ViewController: NSViewController {
     
     private func appendToStatus(_ message: String) {
         DispatchQueue.main.async {
-            self.statusTextView.textStorage?.append(NSAttributedString(string: message))
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: NSFont.monospacedSystemFont(ofSize: 11, weight: .regular),
+                .foregroundColor: NSColor.textColor
+            ]
+            let attributedMessage = NSAttributedString(string: message, attributes: attributes)
+            self.statusTextView.textStorage?.append(attributedMessage)
             self.statusTextView.scrollToEndOfDocument(nil)
         }
     }
