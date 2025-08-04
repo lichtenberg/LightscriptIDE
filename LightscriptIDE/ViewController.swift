@@ -24,6 +24,15 @@ final class ViewController: NSViewController {
         updateCompletionsInBackground()
     }
     
+    override func viewDidAppear() {
+        super.viewDidAppear()
+        view.window?.makeFirstResponder(self)
+    }
+    
+    override var acceptsFirstResponder: Bool {
+        return true
+    }
+    
     private func setupSplitView() {
         splitView = NSSplitView()
         splitView.isVertical = false
@@ -132,7 +141,7 @@ final class ViewController: NSViewController {
     @IBAction func openDocument(_ sender: Any?) {
         let openPanel = NSOpenPanel()
         var allowedTypes: [UTType] = [.plainText]
-        if let lightscriptType = UTType(filenameExtension: "lightscript") {
+        if let lightscriptType = UTType(filenameExtension: "ls2") {
             allowedTypes.append(lightscriptType)
         }
         if let lsType = UTType(filenameExtension: "ls") {
@@ -159,10 +168,10 @@ final class ViewController: NSViewController {
     @IBAction func saveDocumentAs(_ sender: Any?) {
         let savePanel = NSSavePanel()
         var allowedTypes: [UTType] = [.plainText]
-        if let lightscriptType = UTType(filenameExtension: "lightscript") {
+        if let lightscriptType = UTType(filenameExtension: "ls") {
             allowedTypes.append(lightscriptType)
         }
-        if let lsType = UTType(filenameExtension: "ls") {
+        if let lsType = UTType(filenameExtension: "ls2") {
             allowedTypes.append(lsType)
         }
         savePanel.allowedContentTypes = allowedTypes
@@ -292,6 +301,36 @@ extension ViewController: STTextViewDelegate {
         }
 
         textView.insertText(completionItem.insertText)
+    }
+}
+
+// MARK: - Menu Validation
+
+extension ViewController: NSMenuItemValidation {
+    
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        switch menuItem.action {
+        case #selector(newDocument(_:)):
+            return true
+        case #selector(openDocument(_:)):
+            return true
+        case #selector(saveDocument(_:)):
+            return true
+        case #selector(saveDocumentAs(_:)):
+            return true
+        case #selector(runScript(_:)):
+            return true
+        case #selector(stopScript(_:)):
+            return true
+        case #selector(toggleTextWrapMode(_:)):
+            return true
+        case #selector(toggleInvisibles(_:)):
+            return true
+        case #selector(toggleRuler(_:)):
+            return true
+        default:
+            return false
+        }
     }
 }
 
