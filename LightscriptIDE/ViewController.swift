@@ -26,6 +26,49 @@ final class ViewController: NSViewController {
         
         updateCompletionsInBackground()
         setupTimeDisplay()
+        initializeLightscript()
+    }
+    
+    private func initializeLightscript() {
+        // Initialize the lightscript library
+        let result = lightscript_init()
+        if result != 0 {
+            appendToStatus("Failed to initialize lightscript library\n")
+            return
+        }
+        
+        // Set up callbacks
+        lightscript_set_time_callback { time in
+            let minutes = Int(time / 60)
+            let seconds = Int(time.truncatingRemainder(dividingBy: 60))
+            let hundredths = Int((time * 100).truncatingRemainder(dividingBy: 100))
+            let timeString = String(format: "%02d:%02d.%02d", minutes, seconds, hundredths)
+            
+            DispatchQueue.main.async {
+                if let viewController = NSApp.mainWindow?.contentViewController as? ViewController {
+                    viewController.setTimeDisplay(timeString)
+                }
+            }
+        }
+        
+        lightscript_set_status_callback { isError, message in
+            if let message = message {
+                let messageStr = String(cString: message)
+                DispatchQueue.main.async {
+                    if let viewController = NSApp.mainWindow?.contentViewController as? ViewController {
+                        viewController.appendToStatus(messageStr + "\n")
+                        
+                        // If it's an error, highlight the error line
+                        if isError != 0 {
+                            let errorLine = lightscript_get_error_line()
+                            if errorLine > 0 {
+                                viewController.highlightErrorLine(Int(errorLine))
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
     
     override func viewDidAppear() {
@@ -123,23 +166,63 @@ final class ViewController: NSViewController {
     }
     
     @IBAction func runScript(_ sender: Any?) {
-        appendToStatus("Running script...\n")
-        setTimeDisplay("00:00.00")
-        // TODO: Integrate with script interpreter
-        appendToStatus("Script execution not yet implemented.\n")
+        guard let scriptText = textView.text, !scriptText.isEmpty else {
+            appendToStatus("No script to run\n")
+            return
+        }
+        
+        // Reset previous script
+        lightscript_reset()
+        clearErrorHighlight()
+        
+        // Parse the script
+        let parseResult = lightscript_parse_string(scriptText)
+        if parseResult != 0 {
+            // Error parsing - the callback will handle displaying the error
+            return
+        }
+        
+        // Connect to device
+        let connectResult = lightscript_connect()
+        if connectResult != 0 {
+            appendToStatus("Failed to connect to device\n")
+            return
+        }
+        
+        // Start playback with music
+        let playbackResult = lightscript_playback_start(1)
+        if playbackResult != 0 {
+            appendToStatus("Failed to start playback\n")
+            lightscript_disconnect()
+            return
+        }
+        
+        appendToStatus("Playback started\n")
     }
     
     @IBAction func checkScript(_ sender: Any?) {
-        appendToStatus("Checking script syntax...\n")
-        // TODO: Integrate with script syntax checker
-        appendToStatus("Syntax check not yet implemented.\n")
+        guard let scriptText = textView.text, !scriptText.isEmpty else {
+            appendToStatus("No script to check\n")
+            return
+        }
+        
+        // Reset previous script
+        lightscript_reset()
+        clearErrorHighlight()
+        
+        // Parse the script for syntax check only
+        let parseResult = lightscript_parse_string(scriptText)
+        if parseResult == 0 {
+            appendToStatus("Syntax check passed\n")
+        }
+        // Error case is handled by the callback
     }
     
     @IBAction func stopScript(_ sender: Any?) {
-        appendToStatus("Stopping script...\n")
+        lightscript_playback_stop()
+        lightscript_disconnect()
         setTimeDisplay("00:00.00")
-        // TODO: Stop script execution
-        appendToStatus("Script stopped.\n")
+        appendToStatus("Playback stopped\n")
     }
     
     private func appendToStatus(_ message: String) {
@@ -217,6 +300,9 @@ final class ViewController: NSViewController {
             currentFileURL = url
             updateWindowTitle()
             appendToStatus("Loaded file: \(url.lastPathComponent)\n")
+            
+            // Add to recent documents
+            NSDocumentController.shared.noteNewRecentDocumentURL(url)
         } catch {
             appendToStatus("Error loading file: \(error.localizedDescription)\n")
             NSAlert(error: error).runModal()
@@ -231,6 +317,9 @@ final class ViewController: NSViewController {
             }
             try text.write(to: url, atomically: true, encoding: .utf8)
             appendToStatus("Saved file: \(url.lastPathComponent)\n")
+            
+            // Add to recent documents
+            NSDocumentController.shared.noteNewRecentDocumentURL(url)
         } catch {
             appendToStatus("Error saving file: \(error.localizedDescription)\n")
             NSAlert(error: error).runModal()
@@ -265,9 +354,58 @@ final class ViewController: NSViewController {
             self.timeDisplayField?.stringValue = timeString
         }
     }
+    
+    // MARK: - Error Highlighting
+    
+    private func highlightErrorLine(_ lineNumber: Int) {
+        let workItem = DispatchWorkItem {
+            // Convert 1-based line number to 0-based
+            let targetLine = max(0, lineNumber - 1)
+            
+            // Get the text content
+            guard let text = self.textView.text else { return }
+            
+            // Find the range for the specified line
+            let lines = text.components(separatedBy: .newlines)
+            
+            guard targetLine < lines.count else { return }
+            
+            // Calculate the character range for the line
+            var charIndex = 0
+            for i in 0..<targetLine {
+                charIndex += lines[i].count + 1 // +1 for newline
+            }
+            
+            let lineLength = lines[targetLine].count
+            let lineRange = NSRange(location: charIndex, length: lineLength)
+            
+            // For STTextView, work with the text layout manager directly
+            let textLayoutManager = self.textView.textLayoutManager
+            let textContentManager = self.textView.textContentManager
+            
+            // Convert NSRange to NSTextRange for STTextView
+            if let textRange = NSTextRange(lineRange, in: textContentManager) {
+                // Get the bounding rect for the text range
+                if let boundingRect = textLayoutManager.textSegmentFrame(in: textRange, type: .standard) {
+                    // Scroll to show the error line
+                    self.textView.scrollToVisible(boundingRect)
+                }
+            }
+        }
+        DispatchQueue.main.async(execute: workItem)
+    }
+    
+    private func clearErrorHighlight() {
+        let workItem = DispatchWorkItem {
+            // For now, this is a no-op since we need to research STTextView's highlighting API
+            // TODO: Implement proper highlight clearing once we understand STTextView's attribute API
+        }
+        DispatchQueue.main.async(execute: workItem)
+    }
 
     override func viewDidDisappear() {
         super.viewDidDisappear()
+        lightscript_shutdown()
         completionTask?.cancel()
     }
 
