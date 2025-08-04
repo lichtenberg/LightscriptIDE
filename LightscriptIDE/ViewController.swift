@@ -12,6 +12,9 @@ final class ViewController: NSViewController {
     private var splitView: NSSplitView!
     private var completions: [Completion.Item] = []
     private var currentFileURL: URL?
+    
+    // Time display
+    private var timeDisplayField: NSTextField?
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -22,6 +25,7 @@ final class ViewController: NSViewController {
         updateWindowTitle()
         
         updateCompletionsInBackground()
+        setupTimeDisplay()
     }
     
     override func viewDidAppear() {
@@ -120,12 +124,20 @@ final class ViewController: NSViewController {
     
     @IBAction func runScript(_ sender: Any?) {
         appendToStatus("Running script...\n")
+        setTimeDisplay("00:00.00")
         // TODO: Integrate with script interpreter
         appendToStatus("Script execution not yet implemented.\n")
     }
     
+    @IBAction func checkScript(_ sender: Any?) {
+        appendToStatus("Checking script syntax...\n")
+        // TODO: Integrate with script syntax checker
+        appendToStatus("Syntax check not yet implemented.\n")
+    }
+    
     @IBAction func stopScript(_ sender: Any?) {
         appendToStatus("Stopping script...\n")
+        setTimeDisplay("00:00.00")
         // TODO: Stop script execution
         appendToStatus("Script stopped.\n")
     }
@@ -232,6 +244,27 @@ final class ViewController: NSViewController {
             view.window?.title = "LightscriptIDE - Untitled"
         }
     }
+    
+    // MARK: - Time Display
+    
+    private func setupTimeDisplay() {
+        // Find the time display field in the toolbar
+        if let toolbar = view.window?.toolbar,
+           let timeItem = toolbar.items.first(where: { $0.itemIdentifier.rawValue == "TIME_DISPLAY" }),
+           let timeView = timeItem.view,
+           let textField = timeView.subviews.first(where: { $0 is NSTextField }) as? NSTextField {
+            timeDisplayField = textField
+            setTimeDisplay("00:00.00")
+        }
+    }
+    
+    /// Updates the time display in the toolbar. Call this from your script engine.
+    /// - Parameter timeString: Time in format "MM:SS.HH" (e.g. "01:23.45")
+    func setTimeDisplay(_ timeString: String) {
+        DispatchQueue.main.async {
+            self.timeDisplayField?.stringValue = timeString
+        }
+    }
 
     override func viewDidDisappear() {
         super.viewDidDisappear()
@@ -332,6 +365,8 @@ extension ViewController: NSMenuItemValidation {
         case #selector(saveDocumentAs(_:)):
             return true
         case #selector(runScript(_:)):
+            return true
+        case #selector(checkScript(_:)):
             return true
         case #selector(stopScript(_:)):
             return true
