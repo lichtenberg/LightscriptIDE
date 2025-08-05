@@ -14,9 +14,22 @@
 		C12E534C2E2CA51300A30E51 /* LightscriptIDE.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LightscriptIDE.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		C1BB1A732E41B94200754DD9 /* Exceptions for "LightscriptIDE" folder in "LightscriptIDE" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = C12E534B2E2CA51300A30E51 /* LightscriptIDE */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		C12E534E2E2CA51300A30E51 /* LightscriptIDE */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				C1BB1A732E41B94200754DD9 /* Exceptions for "LightscriptIDE" folder in "LightscriptIDE" target */,
+			);
 			path = LightscriptIDE;
 			sourceTree = "<group>";
 		};
@@ -265,6 +278,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = LightscriptIDE/Info.plist;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMainStoryboardFile = Main;
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
@@ -296,6 +310,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = LightscriptIDE/Info.plist;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMainStoryboardFile = Main;
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;

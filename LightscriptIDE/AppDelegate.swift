@@ -17,6 +17,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
         return true
     }
+    
+    func application(_ sender: NSApplication, openFile filename: String) -> Bool {
+          let url = URL(fileURLWithPath: filename)
+
+          // Get the main window's view controller and load the file
+          if let mainWindow = NSApp.mainWindow,
+             let viewController = mainWindow.contentViewController as? ViewController {
+              viewController.loadFileFromURL(url)
+              return true
+          }
+          return false
+      }
 
 
 }

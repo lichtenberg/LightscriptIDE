@@ -152,6 +152,11 @@ final class ViewController: NSViewController {
             self.splitView.setPosition(self.splitView.bounds.height - 120, ofDividerAt: 0)
         }
     }
+    
+    func loadFileFromURL(_ url: URL) {
+          loadFile(from: url)
+      }
+
 
     @IBAction func toggleTextWrapMode(_ sender: Any?) {
         textView.isHorizontallyResizable.toggle()
@@ -403,6 +408,14 @@ final class ViewController: NSViewController {
         DispatchQueue.main.async(execute: workItem)
     }
 
+    @IBAction func showPreferences(_ sender: Any?) {
+        let storyboard = NSStoryboard(name: "Main", bundle: nil)
+        if let preferencesController = storyboard.instantiateController(withIdentifier: "PreferencesWindow") as? NSWindowController {
+            preferencesController.showWindow(nil)
+            preferencesController.window?.center()
+        }
+    }
+
     override func viewDidDisappear() {
         super.viewDidDisappear()
         lightscript_shutdown()
@@ -501,6 +514,8 @@ extension ViewController: NSMenuItemValidation {
         case #selector(saveDocument(_:)):
             return true
         case #selector(saveDocumentAs(_:)):
+            return true
+        case #selector(showPreferences(_:)):
             return true
         case #selector(runScript(_:)):
             return true
