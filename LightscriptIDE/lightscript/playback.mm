@@ -56,6 +56,9 @@ Playback::Playback()
 
 Playback::~Playback()
 {
+    // Ensure the thread is gone.
+    play_please_stop = true;
+    play_wait();
 }
 
 
@@ -480,7 +483,9 @@ void Playback::play_events(LSSchedule *sched, double start_cue, double end_cue)
             }
         }
     }
-
+    
+    last_offset = 0;
+    
     while (!play_please_stop && (idx < events)) {
         double now;
 
@@ -489,6 +494,11 @@ void Playback::play_events(LSSchedule *sched, double start_cue, double end_cue)
         // Figure out the difference between the time stamp
         // at the start and now.
         now = current_time() - start_time + start_cue;
+
+        if ((now - last_offset) >= 0.1) {
+            last_offset = now;
+            if (time_callback) (*time_callback)(time_callback_arg, now);
+        }
 
         // If the current time is past the script command's time,
         // do the command.
@@ -747,6 +757,11 @@ void Playback::play_initdevice()
 int Playback::play_start(int how)
 {
     play_with_music = how;
+    
+    if (curscript->lss_music == "") {
+        play_with_music = 0;
+        lsprintf("No music specified in the script file, playing without music");
+    }
 
     if (playbackThread.joinable()) {
         lsprinterr("ERROR: playback is running\n");
