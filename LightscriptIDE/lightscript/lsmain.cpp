@@ -49,6 +49,8 @@ static LSScript *script = NULL;
 static LSSchedule *schedule;
 static Playback playback;
 
+void (*g_playback_end_cb)(void);
+
 extern "C" {
 int lsprintf(const char * str, ...)
 {
