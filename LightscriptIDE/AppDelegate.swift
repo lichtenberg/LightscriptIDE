@@ -29,6 +29,35 @@ class AppDelegate: NSObject, NSApplicationDelegate {
           }
           return false
       }
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        print("applicationShouldTerminate called")
+
+        // Check if main window has unsaved changes
+        if let mainWindow = NSApp.mainWindow,
+           let viewController = mainWindow.contentViewController as? ViewController {
+
+            // Add a method to ViewController to check if modified
+            if viewController.isDocumentModified {
+                let alert = NSAlert()
+                alert.messageText = "Do you want to save the changes to your document?"
+                alert.addButton(withTitle: "Save")
+                alert.addButton(withTitle: "Don't Save")
+                alert.addButton(withTitle: "Cancel")
+
+                let response = alert.runModal()
+                switch response {
+                case .alertFirstButtonReturn: // Save
+                    viewController.saveDocument(nil)
+                    return viewController.isDocumentModified ? .terminateCancel : .terminateNow
+                case .alertSecondButtonReturn: // Don't Save
+                    return .terminateNow
+                default: // Cancel
+                    return .terminateCancel
+                }
+            }
+        }
+        return .terminateNow
+    }
 
 
 }

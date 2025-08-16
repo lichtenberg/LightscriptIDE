@@ -6,13 +6,18 @@ import STTextView
 import SwiftUI
 import UniformTypeIdentifiers
 
-final class ViewController: NSViewController {
+final class ViewController: NSViewController, NSWindowDelegate {
     private var textView: STTextView!
     private var statusTextView: NSTextView!
     private var splitView: NSSplitView!
     private var completions: [Completion.Item] = []
     private var currentFileURL: URL?
-    
+    var isDocumentModified = false {
+        didSet {
+            view.window?.isDocumentEdited = isDocumentModified
+        }
+    }
+
     // Time display
     private var timeDisplayField: NSTextField?
     
@@ -38,6 +43,7 @@ final class ViewController: NSViewController {
         
         // Store reference for C callbacks
         ViewController.sharedInstance = self
+
         
         setupSplitView()
         setupTextEditor()
@@ -98,6 +104,8 @@ final class ViewController: NSViewController {
         // Set up time display after window is fully loaded
         setupTimeDisplay()
         setButtonsForIdleState()
+        view.window?.delegate = self
+
     }
     
     override var acceptsFirstResponder: Bool {
@@ -397,6 +405,7 @@ final class ViewController: NSViewController {
             currentFileURL = url
             updateWindowTitle()
             appendToStatus("Loaded file: \(url.lastPathComponent)\n")
+            isDocumentModified = false
             
             // Add to recent documents
             NSDocumentController.shared.noteNewRecentDocumentURL(url)
@@ -414,7 +423,7 @@ final class ViewController: NSViewController {
             }
             try text.write(to: url, atomically: true, encoding: .utf8)
             appendToStatus("Saved file: \(url.lastPathComponent)\n")
-            
+            isDocumentModified = false
             // Add to recent documents
             NSDocumentController.shared.noteNewRecentDocumentURL(url)
         } catch {
@@ -423,6 +432,28 @@ final class ViewController: NSViewController {
         }
     }
     
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        if isDocumentModified {
+            let alert = NSAlert()
+            alert.messageText = "Do you want to save the changes to your document?"
+            alert.addButton(withTitle: "Save")
+            alert.addButton(withTitle: "Don't Save")
+            alert.addButton(withTitle: "Cancel")
+
+            let response = alert.runModal()
+            switch response {
+            case .alertFirstButtonReturn: // Save
+                saveDocument(nil)
+                return !isDocumentModified // Only close if save succeeded
+            case .alertSecondButtonReturn: // Don't Save
+                return true
+            default: // Cancel
+                return false
+            }
+        }
+        return true
+    }
+
     // MARK: - File Path Helpers
     
     /// Get the directory path where the currently opened script file lives
@@ -630,6 +661,7 @@ extension ViewController: STTextViewDelegate {
     func textView(_ textView: STTextView, didChangeTextIn affectedCharRange: NSTextRange, replacementString: String) {
         // Continous completion update disabled due to bad performance for large strings
         // updateCompletionsInBackground()
+        isDocumentModified = true
     }
     
 
