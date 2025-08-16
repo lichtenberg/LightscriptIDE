@@ -16,6 +16,7 @@ int lightscript_init(void);
 //
 void lightscript_set_time_callback(void (*callback)(double));
 void lightscript_set_status_callback(void (*callback)(int iserror, const char *string));
+void lightscript_set_playback_end_callback(void (*callback)(void));
 
 // Set the name of the device to connect to.  Could be an IP address or hostname, or "usb" to
 // select the connected USB device, if any.
@@ -33,12 +34,18 @@ int lightscript_reset(void);
 //
 // Read a script file (mainly for config files which are read just before the user script is parsed).
 //
-int lightscript_parse_file(const char *filename);
+int lightscript_tokenize_file(const char *filename);
 
 //
 // Read the script as a string (as we would retrieve from the STTextView control)
 //
-int lightscript_parse_string(const char *script);
+int lightscript_tokenize_string(const char *script);
+
+void lightscript_set_script_directory(const char *dirname);
+//
+// Parse the tokenized text
+//
+int lightscript_parse_script(void);
 
 //
 // Connect, disconnect from PicoLaser board
@@ -54,12 +61,19 @@ int lightscript_disconnect(void);
 //
 int lightscript_playback_start(int with_music);
 void lightscript_playback_stop(void);
-
+void lightscript_playback_wait(void);
 
 //
 // Applicaton termination
 //
 void lightscript_shutdown(void);
+
+    //
+    // Logging
+    //
+    int lsprintf(const char * str, ...);
+    int lsprinterr(const char * str,...);
+    
 
 #ifdef __cplusplus
 };

@@ -19,6 +19,9 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
+				lightscript/apitest.cpp,
+				lightscript/lightscript.lex,
+				lightscript/lsmain.cpp,
 			);
 			target = C12E534B2E2CA51300A30E51 /* LightscriptIDE */;
 		};
@@ -181,6 +184,7 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				"CODE_SIGN_ENTITLEMENTS[sdk=*]" = LightscriptIDE/LightscriptIDE.entitlements;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;

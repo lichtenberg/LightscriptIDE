@@ -15,9 +15,29 @@ final class ViewController: NSViewController {
     
     // Time display
     private var timeDisplayField: NSTextField?
+    
+    // Static reference for C callbacks
+    private static weak var sharedInstance: ViewController?
+    
+    private static let playbackEndCallback: @convention(c) () -> Void = {
+        DispatchQueue.main.async {
+            ViewController.sharedInstance?.handlePlaybackEnded()
+        }
+    }
+    // Add this method to handle natural script ending
+    private func handlePlaybackEnded() {
+        setButtonsForIdleState()
+        setTimeDisplay("00:00.00")
+        appendToStatus("Playback completed\n")
+        // Any other cleanup you need
+    }
+
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        // Store reference for C callbacks
+        ViewController.sharedInstance = self
         
         setupSplitView()
         setupTextEditor()
@@ -25,7 +45,6 @@ final class ViewController: NSViewController {
         updateWindowTitle()
         
         updateCompletionsInBackground()
-        setupTimeDisplay()
         initializeLightscript()
     }
     
@@ -38,33 +57,34 @@ final class ViewController: NSViewController {
         }
         
         // Set up callbacks
-        lightscript_set_time_callback { time in
-            let minutes = Int(time / 60)
-            let seconds = Int(time.truncatingRemainder(dividingBy: 60))
-            let hundredths = Int((time * 100).truncatingRemainder(dividingBy: 100))
-            let timeString = String(format: "%02d:%02d.%02d", minutes, seconds, hundredths)
-            
-            DispatchQueue.main.async {
-                if let viewController = NSApp.mainWindow?.contentViewController as? ViewController {
-                    viewController.setTimeDisplay(timeString)
-                }
-            }
-        }
+        lightscript_set_time_callback(ViewController.timeCallback)
+        lightscript_set_status_callback(ViewController.statusCallback)
+        lightscript_set_playback_end_callback(ViewController.playbackEndCallback)
+    }
+    
+    // Static callback functions for C interface
+    private static let timeCallback: @convention(c) (Double) -> Void = { time in
+        let minutes = Int(time / 60)
+        let seconds = Int(time.truncatingRemainder(dividingBy: 60))
+        let hundredths = Int((time * 100).truncatingRemainder(dividingBy: 100))
+        let timeString = String(format: "%02d:%02d.%02d", minutes, seconds, hundredths)
         
-        lightscript_set_status_callback { isError, message in
-            if let message = message {
-                let messageStr = String(cString: message)
-                DispatchQueue.main.async {
-                    if let viewController = NSApp.mainWindow?.contentViewController as? ViewController {
-                        viewController.appendToStatus(messageStr + "\n")
-                        
-                        // If it's an error, highlight the error line
-                        if isError != 0 {
-                            let errorLine = lightscript_get_error_line()
-                            if errorLine > 0 {
-                                viewController.highlightErrorLine(Int(errorLine))
-                            }
-                        }
+        DispatchQueue.main.async {
+            ViewController.sharedInstance?.setTimeDisplay(timeString)
+        }
+    }
+    
+    private static let statusCallback: @convention(c) (Int32, UnsafePointer<CChar>?) -> Void = { isError, message in
+        if let message = message {
+            let messageStr = String(cString: message)
+            DispatchQueue.main.async {
+                ViewController.sharedInstance?.appendToStatus(messageStr + "\n")
+                
+                // If it's an error, highlight the error line
+                if isError != 0 {
+                    let errorLine = lightscript_get_error_line()
+                    if errorLine > 0 {
+                        ViewController.sharedInstance?.highlightErrorLine(Int(errorLine))
                     }
                 }
             }
@@ -74,6 +94,10 @@ final class ViewController: NSViewController {
     override func viewDidAppear() {
         super.viewDidAppear()
         view.window?.makeFirstResponder(self)
+        
+        // Set up time display after window is fully loaded
+        setupTimeDisplay()
+        setButtonsForIdleState()
     }
     
     override var acceptsFirstResponder: Bool {
@@ -175,24 +199,59 @@ final class ViewController: NSViewController {
             appendToStatus("No script to run\n")
             return
         }
-        
+        statusTextView.string = ""
+
+        setButtonsForIdleState()
         // Reset previous script
         lightscript_reset()
         clearErrorHighlight()
         
+        // Dig out preferences
+        let panelConfig = PreferencesViewController.panelConfigFile
+        let lightscriptConfig = PreferencesViewController.lightscriptConfigFile
+
+        guard !panelConfig.isEmpty else {
+            appendToStatus("Error: Panel config file not set. Please configure in Settings.\n")
+            return
+        }
+
+        guard !lightscriptConfig.isEmpty else {
+            appendToStatus("Error: Lightscript config file not set. Please configure in Settings.\n")
+            return
+        }
+
+        if lightscript_tokenize_file(panelConfig) != 0 {
+            return
+        }
+        if lightscript_tokenize_file(lightscriptConfig) != 0 {
+            return
+        }
+
         // Parse the script
-        let parseResult = lightscript_parse_string(scriptText)
-        if parseResult != 0 {
+        let tokenizeResult = lightscript_tokenize_string(scriptText)
+        if tokenizeResult != 0 {
             // Error parsing - the callback will handle displaying the error
             return
         }
         
+        let parseResult = lightscript_parse_script()
+        if parseResult != 0 {
+            if parseResult == -3 {
+                // Scroll the view to the error line
+                highlightErrorLine(Int(lightscript_get_error_line()))
+            }
+            return
+        }
+        
         // Connect to device
+        lightscript_set_device(PreferencesViewController.deviceAddress)
         let connectResult = lightscript_connect()
         if connectResult != 0 {
             appendToStatus("Failed to connect to device\n")
             return
         }
+        
+        lightscript_set_script_directory(getCurrentScriptDirectory())
         
         // Start playback with music
         let playbackResult = lightscript_playback_start(1)
@@ -201,33 +260,66 @@ final class ViewController: NSViewController {
             lightscript_disconnect()
             return
         }
-        
+        setButtonsForPlayingState()
         appendToStatus("Playback started\n")
     }
     
     @IBAction func checkScript(_ sender: Any?) {
+        statusTextView.string = ""
+
         guard let scriptText = textView.text, !scriptText.isEmpty else {
             appendToStatus("No script to check\n")
             return
         }
-        
+
         // Reset previous script
         lightscript_reset()
         clearErrorHighlight()
-        
-        // Parse the script for syntax check only
-        let parseResult = lightscript_parse_string(scriptText)
-        if parseResult == 0 {
-            appendToStatus("Syntax check passed\n")
+  
+        // Dig out preferences
+        let panelConfig = PreferencesViewController.panelConfigFile
+        let lightscriptConfig = PreferencesViewController.lightscriptConfigFile
+
+        guard !panelConfig.isEmpty else {
+            appendToStatus("Error: Panel config file not set. Please configure in Settings.\n")
+            return
         }
+
+        guard !lightscriptConfig.isEmpty else {
+            appendToStatus("Error: Lightscript config file not set. Please configure in Settings.\n")
+            return
+        }
+
+        if lightscript_tokenize_file(panelConfig) != 0 {
+            return
+        }
+        if lightscript_tokenize_file(lightscriptConfig) != 0 {
+            return
+        }
+
+        // Parse the script for syntax check only
+        let tokenizeResult = lightscript_tokenize_string(scriptText)
+        if tokenizeResult == 0 {
+            appendToStatus("Script tokenized successfully\n")
+            let parserResult = lightscript_parse_script()
+            if parserResult == 0 {
+                appendToStatus("Script parsed successfully\n")
+            } else {
+                if parserResult == -3 {
+                    highlightErrorLine(Int(lightscript_get_error_line()))
+                }
+                appendToStatus("Script parsing failed\n")
+            }
+        }
+        
         // Error case is handled by the callback
     }
     
     @IBAction func stopScript(_ sender: Any?) {
         lightscript_playback_stop()
-        lightscript_disconnect()
+        //lightscript_disconnect()
         setTimeDisplay("00:00.00")
-        appendToStatus("Playback stopped\n")
+        appendToStatus("Playback interrupted\n")
     }
     
     private func appendToStatus(_ message: String) {
@@ -331,6 +423,27 @@ final class ViewController: NSViewController {
         }
     }
     
+    // MARK: - File Path Helpers
+    
+    /// Get the directory path where the currently opened script file lives
+    /// - Returns: Directory path as String, or nil if no file is open
+    func getCurrentScriptDirectory() -> String? {
+        guard let fileURL = currentFileURL else {
+            return nil
+        }
+        return fileURL.deletingLastPathComponent().path
+    }
+    
+    /// Get a path relative to the current script's directory
+    /// - Parameter filename: The filename to append to the script directory
+    /// - Returns: Full path string, or nil if no script is open
+    func getPathRelativeToScript(_ filename: String) -> String? {
+        guard let scriptDir = getCurrentScriptDirectory() else {
+            return nil
+        }
+        return URL(fileURLWithPath: scriptDir).appendingPathComponent(filename).path
+    }
+    
     private func updateWindowTitle() {
         if let url = currentFileURL {
             view.window?.title = "LightscriptIDE - \(url.lastPathComponent)"
@@ -343,13 +456,16 @@ final class ViewController: NSViewController {
     
     private func setupTimeDisplay() {
         // Find the time display field in the toolbar
-        if let toolbar = view.window?.toolbar,
-           let timeItem = toolbar.items.first(where: { $0.itemIdentifier.rawValue == "TIME_DISPLAY" }),
-           let timeView = timeItem.view,
-           let textField = timeView.subviews.first(where: { $0 is NSTextField }) as? NSTextField {
-            timeDisplayField = textField
-            setTimeDisplay("00:00.00")
+        guard let window = view.window,
+              let toolbar = window.toolbar,
+              let timeItem = toolbar.items.first(where: { $0.itemIdentifier.rawValue == "TIME_DISPLAY" }),
+              let timeView = timeItem.view,
+              let textField = timeView.subviews.first(where: { $0 is NSTextField }) as? NSTextField else {
+            return
         }
+        
+        timeDisplayField = textField
+        setTimeDisplay("00:00.00")
     }
     
     /// Updates the time display in the toolbar. Call this from your script engine.
@@ -358,6 +474,55 @@ final class ViewController: NSViewController {
         DispatchQueue.main.async {
             self.timeDisplayField?.stringValue = timeString
         }
+    }
+    
+    // MARK: - Toolbar Button Control
+    
+    /// Enable or disable the Play button in the toolbar
+    /// - Parameter enabled: true to enable, false to gray out
+    func setPlayButtonEnabled(_ enabled: Bool) {
+        DispatchQueue.main.async {
+            if let toolbar = self.view.window?.toolbar,
+               let playItem = toolbar.items.first(where: { $0.itemIdentifier.rawValue == "RUN_SCRIPT" }) {
+                playItem.isEnabled = enabled
+            }
+        }
+    }
+    
+    /// Enable or disable the Check button in the toolbar  
+    /// - Parameter enabled: true to enable, false to gray out
+    func setCheckButtonEnabled(_ enabled: Bool) {
+        DispatchQueue.main.async {
+            if let toolbar = self.view.window?.toolbar,
+               let checkItem = toolbar.items.first(where: { $0.itemIdentifier.rawValue == "CHECK_SCRIPT" }) {
+                checkItem.isEnabled = enabled
+            }
+        }
+    }
+    
+    /// Enable or disable the Stop button in the toolbar
+    /// - Parameter enabled: true to enable, false to gray out  
+    func setStopButtonEnabled(_ enabled: Bool) {
+        DispatchQueue.main.async {
+            if let toolbar = self.view.window?.toolbar,
+               let stopItem = toolbar.items.first(where: { $0.itemIdentifier.rawValue == "STOP_SCRIPT" }) {
+                stopItem.isEnabled = enabled
+            }
+        }
+    }
+    
+    /// Set button states for idle mode (not playing)
+    func setButtonsForIdleState() {
+        setPlayButtonEnabled(true)
+        setCheckButtonEnabled(true) 
+        setStopButtonEnabled(false)
+    }
+    
+    /// Set button states for playing mode
+    func setButtonsForPlayingState() {
+        setPlayButtonEnabled(false)
+        setCheckButtonEnabled(false)
+        setStopButtonEnabled(true)
     }
     
     // MARK: - Error Highlighting
